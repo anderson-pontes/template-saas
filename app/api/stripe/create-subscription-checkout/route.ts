@@ -1,4 +1,6 @@
+import { auth } from '@/app/lib/auth';
 import stripe from '@/app/lib/stripe';
+import { getOrCreateCustomer } from '@/app/server/stripe/get-customer-id';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(req: NextRequest) {
@@ -9,9 +11,22 @@ export async function POST(req: NextRequest) {
     if (!price) {
         return NextResponse.json({ error: 'Price ID not found' }, { status: 500 });
     }
+
+    const session = await auth();
+    const userId = session?.user?.id;
+    const userEmail = session?.user?.email;
+
+    if (!userId || !userEmail) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const customerId = await getOrCreateCustomer(userId, userEmail);
+
     const metadata = {
         testeId,
     }
+
+
 
     try{
         const session = await stripe.checkout.sessions.create({
@@ -26,6 +41,7 @@ export async function POST(req: NextRequest) {
             success_url: `${req.headers.get('origin')}/success`,
             cancel_url: `${req.headers.get('origin')}/`,
             metadata,
+            customer: customerId,
             
         });
 
