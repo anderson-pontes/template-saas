@@ -10,6 +10,10 @@ export async function POST(req: NextRequest){
         return NextResponse.json({ error: 'Price ID not found' }, { status: 500 });
     }
 
+    const metadata = {
+        testeId,
+    }
+
     try {
         const session = await stripe.checkout.sessions.create({
             mode: 'payment',
@@ -22,7 +26,13 @@ export async function POST(req: NextRequest){
             payment_method_types: ['card', 'boleto'],
             success_url: `${req.headers.get('origin')}/success`,
             cancel_url: `${req.headers.get('origin')}/`,
+            ...(useEmail && {customer_email: useEmail}),
+            metadata,
         });
+
+        if(!session){
+            return NextResponse.json({ error: 'Session not found' }, { status: 500 });
+        }
 
         return NextResponse.json({ sessionId: session.id }, { status: 200 });
 
